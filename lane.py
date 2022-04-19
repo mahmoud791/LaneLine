@@ -53,9 +53,6 @@ def sharpen_img(img):
     gb = cv2.GaussianBlur(img, (5,5), 20.0)
     return cv2.addWeighted(img, 2, gb, -1, 0)
 
-
-
-
 # Compute linear image transformation img*s+m
 def lin_img(img,s=1.0,m=0.0):
     img2=cv2.multiply(img, np.array([s]))
@@ -66,6 +63,23 @@ def contr_img(img, s=1.0):
     m=127.0*(1.0-s)
     return lin_img(img, s, m)
 
+
+# Create perspective image transformation matrices
+def create_M():
+    src = np.float32([[0, 673], [1207, 673], [0, 450], [1280, 450]])
+    dst = np.float32([[569, 223], [711, 223], [0, 0], [1280, 0]])
+    M = cv2.getPerspectiveTransform(src, dst)
+    Minv = cv2.getPerspectiveTransform(dst, src)
+    return M, Minv
+
+# Main image transformation routine to get a warped image
+def transform(img, M):
+    undist = undistort(img)
+    img_size = (IMAGE_W, IMAGE_H)
+    warped = cv2.warpPerspective(undist, M, img_size)
+    warped = sharpen_img(warped)
+    warped = contr_img(warped, 1.1)
+    return warped
 
 
 
