@@ -38,4 +38,12 @@ r_n = 0 # Number of frames with unsuccessful line detection
 l_n = 0
 
 
+
+############################################### Camera Calibration##############################################
+
 mtx, dist = camera_cal()
+def undistort(img):
+	return cv2.undistort(img, mtx, dist, None, mtx)
+
+
+######################################################################################################################################
