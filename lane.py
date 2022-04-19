@@ -37,13 +37,36 @@ n_count = 0 # Frame counter
 r_n = 0 # Number of frames with unsuccessful line detection
 l_n = 0
 
+mtx = []
+dist = []
+M = []
+Minv = []
 
 
-############################################### Camera Calibration##############################################
 
-mtx, dist = camera_cal()
+
 def undistort(img):
 	return cv2.undistort(img, mtx, dist, None, mtx)
 
+# Sharpen image
+def sharpen_img(img):
+    gb = cv2.GaussianBlur(img, (5,5), 20.0)
+    return cv2.addWeighted(img, 2, gb, -1, 0)
 
-######################################################################################################################################
+
+
+# Process videos
+
+def main():
+    init_params(0.2)
+    global mtx , dist,M,Minv
+    mtx, dist = camera_cal() # camera calibration matrix And distortion matrix
+    M, Minv = create_M() # bird eye transformation matrix and inverse matrix
+    output_v = 'project_video_proc.mp4'
+    clip1 = VideoFileClip("challenge_video.mp4")
+    clip = clip1.fl_image(process_image)
+    clip.write_videofile(output_v, audio=False)
+
+
+if __name__ == '__main__':
+    main()
