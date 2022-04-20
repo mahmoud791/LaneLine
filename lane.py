@@ -1,3 +1,4 @@
+
 # Load nessesery modules and set up
 from fileinput import filename
 import sys
@@ -397,3 +398,81 @@ def init_params(ran):
     
 def process_image(image):
     return draw_lane(image, True)
+
+# Process videos
+
+def main():
+
+    
+    input_path = sys.argv[1]
+    output_path = sys.argv[2]
+    debug = sys.argv[3]
+
+
+    init_params(0.2)
+    global mtx , dist,M,Minv
+    mtx, dist = camera_cal() # camera calibration matrix And distortion matrix
+    M, Minv = create_M() # bird eye transformation matrix and inverse matrix
+    output_5 = 'project_video_final.mp4'
+    output_4 = 'project_video_4.mp4'
+    output_3 = 'project_video_3.mp4'
+    output_2 = 'project_video_2.mp4'
+    output_1 = 'project_video_1.mp4'
+
+    clip1 = VideoFileClip(input_path)
+
+    images = [i for i in clip1.iter_frames()]
+    fourcc = cv2.VideoWriter_fourcc('m', 'p', '4', 'v')
+    size = images[0].shape[1], images[0].shape[0]
+    writer_5 = cv2.VideoWriter(output_5, fourcc, 60, size)
+    writer_4 = cv2.VideoWriter(output_4, fourcc, 60, size)
+    writer_3 = cv2.VideoWriter(output_3, fourcc, 60, (1280,223))
+    writer_2 = cv2.VideoWriter(output_2, fourcc, 60, (1280,223))
+    writer_1 = cv2.VideoWriter(output_1, fourcc, 60, (1280,223))
+
+    if debug == 'y' or debug == 'Y':
+        for frame in images:
+            frame,warp,considered_points,color_warp,newwarp = process_image(frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            #print(considered_points.shape)
+            cv2.imshow("FINAL OUTPUT", considered_points)
+            writer_5.write(frame)
+            writer_4.write(newwarp)
+            writer_3.write(color_warp)
+            writer_2.write(considered_points)
+            writer_1.write(warp)
+            # Display frame for X milliseconds and check if q key is pressed
+            # q == quit
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+              break
+
+    else:
+        for frame in images:
+            frame,warp,considered_points,color_warp,newwarp = process_image(frame)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            cv2.imshow("FINAL OUTPUT", frame)
+            writer_5.write(frame)
+            # Display frame for X milliseconds and check if q key is pressed
+            # q == quit
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+              break
+    
+
+
+
+    #clip = clip1.fl_image(process_image)
+    #clip.write_videofile(output_v, audio=False)
+
+
+
+if __name__ == '__main__':
+    main()
+
+
+
+
+
+    
+
+
+
