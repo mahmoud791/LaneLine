@@ -47,3 +47,16 @@ def red_thres(img, thresh_min = 25, thresh_max = 255):
     red_binary = np.zeros_like(red)
     red_binary[(red >= thresh_min) & (red <= thresh_max)]  = 1
     return red_binary
+
+# Binary saturation channel threshold
+def s_thres(img, thresh_min = 25, thresh_max = 255):
+    hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+    s_channel = hls[:,:,2]
+    s_binary = np.zeros_like(s_channel)
+    s_binary[(s_channel > thresh_min) & (s_channel <= thresh_max)] = 1
+    return s_binary
+
+# Return saturation channel
+def s_hls(img):
+    hls = cv2.cvtColor(img, cv2.COLOR_BGR2HLS)
+    return hls[:,:,2]
