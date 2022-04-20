@@ -9,6 +9,8 @@ echo -e "installing the dependants packges !! \n"
 
 pip install opencv-python
 pip install moviepy
+pip install matplotlib
+pip install sklearn
 
 
 echo -e "\n Starting execution , it may take time , please be patient \n "
