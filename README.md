@@ -22,7 +22,7 @@ Runing the project :
 
 3- enter the input and output path as required and also if you want to run in debug mode
 
-NOTE  :  if you are on on window please replace each " \ " in your path with "\\" so that the shell can read it.
+NOTE  :  if you are on on window please replace each ' \ ' in your path with '\ \' so that the shell can read it.
 
 
 when the file runs it will display the output vedio as being proccessed  and also  when finish the vedio will be saved  in the specified directory
