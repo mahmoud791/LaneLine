@@ -22,3 +22,25 @@ def equidistant(pol, d, max_l = 1, plot = False):
     x_m = np.array(x_m)
     y_m = np.array(y_m)
     k_m = np.array(k_m)
+  #Calculate equidistant points
+    y_eq = d*np.sqrt(1.0/(1+k_m**2))
+    x_eq = np.zeros_like(y_eq)
+    if d >= 0:
+        for i in range(len(x_m)):
+            if k_m[i] < 0:
+                y_eq[i] = y_m[i]-abs(y_eq[i])
+            else:
+                y_eq[i] = y_m[i]+abs(y_eq[i])
+            x_eq[i] = (x_m[i]-k_m[i]*y_m[i])+k_m[i]*y_eq[i]
+    else:
+        for i in range(len(x_m)):
+            if k_m[i] < 0:
+                y_eq[i] = y_m[i]+abs(y_eq[i])
+            else:
+                y_eq[i] = y_m[i]-abs(y_eq[i])
+            x_eq[i] = (x_m[i]-k_m[i]*y_m[i])+k_m[i]*y_eq[i]
+    y_eq /= IMAGE_H # Convert all y coordinates back to [0..1] scale
+    y_pol /= IMAGE_H
+    y_m /= IMAGE_H
+    pol_eq = np.polyfit(y_eq, x_eq, len(pol)-1) # Fit equidistant with a polinomial
+    return pol_eq
