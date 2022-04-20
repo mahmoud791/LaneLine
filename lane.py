@@ -1,4 +1,6 @@
 # Load nessesery modules and set up
+from fileinput import filename
+import sys
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
@@ -178,13 +180,184 @@ def find(img, left=True, p_ord=POL_ORD, pol = np.zeros(POL_ORD+1), max_n = 0):
     else:
         return [0], [0.0]
 
+
+
+
+def find_img(img, left=True, p_ord=POL_ORD, pol = np.zeros(POL_ORD+1), max_n = 0):
+    x_pos = [] #lists of found points
+    y_pos = []
+    max_l = img.shape[0] #number of lines in the img
+    b_img = np.zeros_like(img)
+    b_img = b_img[:,:,2]
+    for i in range(max_l-int(max_l*RANGE)):
+        y = max_l-i #Line number
+        y_01 = y / float(max_l) #y in [0..1] scale
+        if len(x_pos) > 0: # If there are some points detected
+            cent = x_pos[-1] # Use the previous point as a senser center
+        else: #Initial guess on line position
+            if left:
+                cent = 605
+            else:
+                cent = 690
+        if left: #Subsample image
+            sens = 0.5*s_hls(img[max_l-1-i:max_l-i,cent-WINDOW_SIZE:cent+WINDOW_SIZE,:])\
+            +img[max_l-1-i:max_l-i,cent-WINDOW_SIZE:cent+WINDOW_SIZE,2]
+        else:
+            sens = img[max_l-1-i:max_l-i,cent-WINDOW_SIZE:cent+WINDOW_SIZE,2] # Red channel only for right white line
+        if len(sens[0,:]) < WINDOW_SIZE: #If we out of the image
+                break
+        x_max = max(sens[0,:]) #Find maximal value on the sensor
+        sens_mean = np.mean(sens[0,:])
+        # Get threshold
+        if left:
+            loc_thres = thres_l_calc(sens_mean)
+            loc_dev = DEV
+        else:
+            loc_thres = thres_r_calc(sens_mean)
+            loc_dev = DEV
+        #print((sens-sens_mean)>loc_thres)
+        b_img[max_l-1-i:max_l-i,cent-WINDOW_SIZE:cent+WINDOW_SIZE]=(sens-sens_mean)>loc_thres
+        if len(x_pos) == 0:
+            loc_dev = WINDOW_SIZE
+        if (x_max-sens_mean) > loc_thres and (x_max>100 or left):
+            if left:
+                x = list(reversed(sens[0,:])).index(x_max)
+                x = cent+WINDOW_SIZE-x
+            else:
+                x = list(sens[0,:]).index(x_max)
+                x = cent-WINDOW_SIZE+x
+            if x-1 < 569.0*y_01 or x+1 > 569.0*y_01+711 : #if the sensor touchs black triangle
+                break # We are done
+            if abs(pol[-1]) < 1e-4:  # If there are no polynomial provided     
+                x_pos.append(x)
+                y_pos.append(y_01)
+            else:
+                if abs(x-cent) < loc_dev: # If the found point deviated from expected position not significantly
+                    x_pos.append(x)
+                    y_pos.append(y_01)
+    
+    img_proc=np.uint8(255*b_img/np.max(b_img))
+    #show_img(img_proc)
+    if len(x_pos) > 1:
+        return x_pos, y_pos, img_proc
+    else:
+        return [0], [0.0],img_proc
+
+
 # Get lines on a still image
 
 
+def get_lane_video(img):
+    global right_fit_p, left_fit_p, r_len, l_len, n_count, r_n, l_n
+    sw = False
+    warp = transform(img, M)
+    img = undistort(img)
+
+
+    
+    x2, y2, im1 = find_img(warp.copy())
+    x, y, im2 = find_img(warp.copy(), False)
+
+    considered_points = np.zeros((im1.shape[0],im1.shape[1],3))
+    considered_points[:,:,0] = im1+im2
+    considered_points[:,:,1] = im1+im2
+    considered_points[:,:,2] = im1+im2
+    
+    
+
+    if l_n < MAX_N and n_count > 0:
+        x, y = find(warp, pol = left_fit_p, max_n = l_len)
+    else:
+        x, y = find(warp)
+    if len(x) > MIN_POINTS:
+        left_fit, mse_l = best_pol_ord(x,y)
+        if mse_l > DEV_POL*9 and n_count > 0:
+            left_fit = left_fit_p
+            l_n += 1
+        else:
+            l_n /= 2
+    else:
+        left_fit = left_fit_p
+        l_n += 1
+    if r_n < MAX_N and n_count > 0:
+        x2, y2 = find(warp, False, pol = right_fit_p, max_n = r_len)
+    else:
+        x2, y2 = find(warp, False)
+    if len(x2) > MIN_POINTS:
+        right_fit, mse_r = best_pol_ord(x2, y2)
+        if mse_r > DEV_POL*9 and n_count > 0:
+            right_fit = right_fit_p
+            r_n += 1
+        else:
+            r_n /= 2
+    else:
+        right_fit = right_fit_p
+        r_n += 1
+    if n_count > 0: # if not the first video frame
+        # Apply filter
+        if len(left_fit_p) == len(left_fit): # If new and prev polinomial have the same order
+            left_fit = pol_shift(left_fit_p, -SPEED)*(1.0-len(x)/((1.0-RANGE)*IMAGE_H))+left_fit*(len(x)/((1.0-RANGE)*IMAGE_H))
+        else:
+            left_fit = smooth_dif_ord(left_fit_p, x, y, len(left_fit)-1)
+        l_len = y[-1]
+        if len(right_fit_p) == len(right_fit):
+            right_fit = pol_shift(right_fit_p, -SPEED)*(1.0-len(x2)/((1.0-RANGE)*IMAGE_H))+right_fit*(len(x2)/((1.0-RANGE)*IMAGE_H))
+        else:
+            right_fit = smooth_dif_ord(right_fit_p, x2, y2, len(right_fit)-1)
+        r_len = y2[-1]
+        
+    if len(x) > MIN_POINTS and len(x2) <= MIN_POINTS: # If we have only left line
+        lane_w = pol_calc(right_fit_p, 1.0)-pol_calc(left_fit_p, 1.0)
+        right_fit = smooth_dif_ord(right_fit_p, pol_calc(equidistant(left_fit, lane_w, max_l=l_len), y),
+                                   y, len(left_fit)-1)
+        r_len = l_len
+        r_n /=2
+    if len(x2) > MIN_POINTS and len(x) <= MIN_POINTS: # If we have only right line
+        lane_w = pol_calc(right_fit_p, 1.0)-pol_calc(left_fit_p, 1.0)
+        #print(lane_w)
+        left_fit = smooth_dif_ord(left_fit_p, pol_calc(equidistant(right_fit, -lane_w, max_l=r_len), y2),
+                                  y2, len(right_fit)-1)
+        l_len = r_len
+        l_n /=2 
+    if (l_n < MAX_N and r_n < MAX_N):
+        max_y = max(RANGE, l_len, r_len)
+    else:
+        max_y = 1.0#max(RANGE, l_len, r_len)
+        sw = True
+    d1 = pol_calc(right_fit, 1.0)-pol_calc(left_fit, 1.0)
+    dm = pol_calc(right_fit, max_y)-pol_calc(left_fit, max_y)
+    if (d1 > MAX or d1 < 60 or dm < 0):
+        left_fit = left_fit_p
+        right_fit = right_fit_p
+        l_n += 1
+        r_n += 1
+    ploty = np.linspace(max_y, 1, num=IMAGE_H) 
+    left_fitx = pol_calc(left_fit, ploty)
+    right_fitx = pol_calc(right_fit, ploty)
+    right_fit_p = np.copy(right_fit)
+    left_fit_p = np.copy(left_fit)
+    n_count += 1
+    return img,  left_fitx, right_fitx, ploty*223.0, left_fit, right_fit,warp,considered_points
+
+def get_lane(img, plot=False):
+    warp = transform(img, M)
+    img = undistort(img)
+    ploty = np.linspace(0, 1, num=warp.shape[0])
+    x2, y2 = find(warp)
+    x, y = find(warp, False)
+    right_fitx = pol_calc(best_pol_ord(x,y)[0], ploty)
+    left_fitx = pol_calc(best_pol_ord(x2,y2)[0], ploty)
+    y2 = np.int16(np.array(y2)*223.0) # Convert into [0..223] scale
+    y = np.int16(np.array(y)*223.0)
+    return img,  left_fitx, right_fitx, ploty*IMAGE_H
+            
+def draw_lane_img_p(img_path): # Image read function
+    return cv2.imread(img_path)
 
 def draw_lane(img, video=False): #Draw found lane line onto a normal image
     if video:
-        img, left_fitx, right_fitx, ploty, left, right = get_lane_video(img)
+        img, left_fitx, right_fitx, ploty, left, right,warp,considered_points = get_lane_video(img)
+        
     else:
         img, left_fitx, right_fitx, ploty = get_lane(img, True)
     warp_zero = np.zeros((IMAGE_H,IMAGE_W)).astype(np.uint8)
@@ -211,16 +384,9 @@ def draw_lane(img, video=False): #Draw found lane line onto a normal image
         text_rad = 'Radius: '+radius+ ' m'
         cv2.putText(result,text_pos,(10,25), font, 1,(255,255,255),2)
         cv2.putText(result,text_rad,(10,75), font, 1,(255,255,255),2)
-        return(result)
-
-
-
-
-
-
-
-
-
+        return(result,warp,considered_points,color_warp,newwarp)
+   
+# Function to initialize parameters before each video processing
 def init_params(ran):
     global right_fit_p, left_fit_p, n_count, RANGE, MIN_POINTS
     right_fit_p = np.zeros(POL_ORD+1)
@@ -231,20 +397,3 @@ def init_params(ran):
     
 def process_image(image):
     return draw_lane(image, True)
-
-
-# Process videos
-
-def main():
-    init_params(0.2)
-    global mtx , dist,M,Minv
-    mtx, dist = camera_cal() # camera calibration matrix And distortion matrix
-    M, Minv = create_M() # bird eye transformation matrix and inverse matrix
-    output_v = 'project_video_proc.mp4'
-    clip1 = VideoFileClip("challenge_video.mp4")
-    clip = clip1.fl_image(process_image)
-    clip.write_videofile(output_v, audio=False)
-
-
-if __name__ == '__main__':
-    main()
