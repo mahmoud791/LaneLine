@@ -40,3 +40,10 @@ def sobel_dir_img(img, thresh_min = 0.0, thresh_max = 1.5, sobel_kernel = 11):
     graddir_binary =  np.zeros_like(graddir)
     graddir_binary[(graddir >= thresh_min) & (graddir <= thresh_max)] = 1
     return  graddir_binary
+
+# Binary red channel threshold
+def red_thres(img, thresh_min = 25, thresh_max = 255):
+    red = img[:,:,2]
+    red_binary = np.zeros_like(red)
+    red_binary[(red >= thresh_min) & (red <= thresh_max)]  = 1
+    return red_binary
