@@ -15,7 +15,11 @@
 Runing the project :
 
 1- open git bash in the project folder directory 
+
+
 2- run the script.sh file
+
+
 3- enter the input and output path as required and also if you want to run in debug mode
 
 
